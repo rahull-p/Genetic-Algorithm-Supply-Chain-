@@ -5,9 +5,10 @@ import time
 
 
 def main():
-    global pro,  man,  exp,  log,  imp,  distij,  demand,  distjk,  distli,  distlj,  distlk,  lstock,  linv_c,  binv_c,  pop_size, gen_loc
-    gen_loc = 5
-    pop_size = 10
+    global pro,  man,  exp,  log,  imp,  distij,  demand,  distjk,  distli,  distlj,  distlk,  lstock,  linv_c,  binv_c,  pop_size, gen_loc, max_gen
+    max_gen = 100
+    gen_loc = 20
+    pop_size = 1000
     pro, man, exp, log, imp = 5, 3, 2, 3, 2
     distij = [[42, 93, 93], [39, 57, 66], [66, 12, 39], [99, 33, 54], [45, 54, 30]]
     distjk = [[639, 740], [640, 772], [702, 825]]
@@ -25,8 +26,14 @@ def main():
 
 def genetic_algo():
     rand_pop = init_pop()
-    children = offspring(rand_pop)
-
+    global children
+    for i in range(0,max_gen):
+        print i
+        if i ==0:
+            search = offspring(rand_pop)
+        else:
+            search = offspring(children)
+        children = search
     
 
 def init_pop():
@@ -57,20 +64,58 @@ def offspring(rand_pop):
     chrom_set = make_chrom(rand_pop)
     cross_set = cross_1(chrom_set)
     deco_chrom = decode_chrom(cross_set)
-    global truck
-    truck = truck_empty(deco_chrom)
+    truck_p = truck_empty(rand_pop)
+    truck_c = truck_empty(deco_chrom)
     local_result = loc_ser(deco_chrom)
     local_result1 = loc_ser(rand_pop)
-    fit_1 = fitness(local_result)
-    fit_2 = fitness(local_result1)
-    print fit_2
+    fit_1 = fitness(local_result, truck_c)
+    fit_2 = fitness(local_result1, truck_p)
     n_1 = sorted(range(len(fit_1)), key=lambda i:fit_1[i])
     n_2 = sorted(range(len(fit_2)), key=lambda i:fit_2[i])
     new_pop = make_pop(local_result, local_result1, n_1, n_2)
+    truck_n = truck_empty(new_pop)
+    print fitness(new_pop,truck_n)
+    average = avg_fit(fit_1,fit_2,n_1,n_2)
     print("--- %s seconds ---" % (time.time() - start_time))
-    return 0
+    print average
+    return new_pop
 
 def make_pop(pop1,pop2,val1,val2):
+    li_trans,  li_truck, li_type = [[[[0 for x in range(man)] for y in range(pro)]for z in range(6)]for l in range(pop_size)],  [[[[0 for x in range(man)] for y in range(pro)]for z in range(6)]for l in range(pop_size)], [[[[0 for x in range(man)] for y in range(pro)]for z in range(6)]for l in range(pop_size)]
+    inter_trans, inter_truck, inter_type = [[[[0 for x in range(exp)] for x in range(man)]for x in range(6)]for x in range(pop_size)],  [[[[0 for x in range(exp)] for x in range(man)]for x in range(6)]for x in range(pop_size)], [[[[0 for x in range(exp)] for x in range(man)]for x in range(6)]for x in range(pop_size)]
+    del_trans = [[[[0 for x in range(imp)] for x in range(exp)]for x in range(6)]for x in range(pop_size)]
+    for i in range(0,  pop_size/2):
+        g = val1[i]
+        for j in range(0,  6):
+            for k in range(0,  pro):
+                for l in range(0, man):
+                    li_trans[i][j][k][l] = pop1[0][g][j][k][l]
+                    li_truck[i][j][k][l] = pop1[1][g][j][k][l]
+            for k in range(0,  man):
+                for l in range(0,  exp):
+                    inter_trans[i][j][k][l] = pop1[2][g][j][k][l]
+                    inter_truck[i][j][k][l] = pop1[3][g][j][k][l]
+                    #inter_type[i][j][k][l] =random.randint(0,  1)
+            for k in range(0,  exp):
+                for l in range(0,  imp):
+                    del_trans[i][j][k][l] = pop1[4][g][j][k][l]
+    for i in range(0,  pop_size/2):
+        g = val2[i]
+        for j in range(0,  6):
+            for k in range(0,  pro):
+                for l in range(0, man):
+                    li_trans[i+(pop_size/2)][j][k][l] = pop2[0][g][j][k][l]
+                    li_truck[i+(pop_size/2)][j][k][l] = pop2[1][g][j][k][l]
+            for k in range(0,  man):
+                for l in range(0,  exp):
+                    inter_trans[i+(pop_size/2)][j][k][l] = pop2[2][g][j][k][l]
+                    inter_truck[i+(pop_size/2)][j][k][l] = pop2[3][g][j][k][l]
+                    #inter_type[i][j][k][l] =random.randint(0,  1)
+            for k in range(0,  exp):
+                for l in range(0,  imp):
+                    del_trans[i+(pop_size/2)][j][k][l] = pop2[4][g][j][k][l]
+
+    return li_trans, li_truck, inter_trans, inter_truck,  del_trans, li_type, inter_type
 
 
 
@@ -79,9 +124,11 @@ def make_pop(pop1,pop2,val1,val2):
 
 
 
-    
+
+
 def make_chrom(rand_pop):
     li_chrom, li_trans_chrom, inter_chrom, inter_trans_chrom, del_chrom = [[]for x in range(pop_size)],  [[] for y in range(pop_size)],  [[] for y in range(pop_size)],  [[] for y in range(pop_size)],  [[] for y in range(pop_size)]
+    print rand_pop[0][0][0][0]
     for i in range(0,  pop_size):
         for j in range(0,  6):
             for k in range(0,  pro):
@@ -109,18 +156,28 @@ def cross_1(set):
             for k in range(len(rand_seq)/2):
                 n_1, n_2 = rand_seq[k], rand_seq[len(rand_seq)-k-1]
                 if i in [0, 2, 4]:
-                    p_1, p_2 = bin(set[i][j][n_1])[2:].zfill(11), bin(set[i][j][n_2])[2:].zfill(11)
+                    p_1, p_2 = (bin(int(set[i][j][n_1]))[2:]), (bin(int(set[i][j][n_2]))[2:])
+                    p_1, p_2 = p_1.zfill(30), p_2.zfill(30)
                 if i in [1, 3]:
-                    p_1, p_2 = bin(set[i][j][n_1])[2:].zfill(8), bin(set[i][j][n_2])[2:].zfill(8)
-                temp1 = []
-                temp2 = []
-                ran_num = random.sample(xrange(1, len(p_1)-2), 2)
-                r_n1, r_n2 = ran_num[0], ran_num[1]
-                if r_n1 > r_n2:
-                    r_n1, r_n2 = r_n2, r_n1
-                for l in range(r_n1,r_n2):
-                    p_2, p_1 = p_2[0:l] + str(p_1[l]) + p_2[l+1:], p_1[0:l] +  str(p_2[l]) + p_1[l+1:]
-                set[i][j][n_1], set[i][j][n_2] = int(p_1,2), int(p_2,2)
+                    p_1, p_2 = (bin(int(set[i][j][n_1]))[2:]), (bin(int(set[i][j][n_2]))[2:])
+                    p_1, p_2 = p_1.zfill(30), p_2.zfill(30)
+                n = 0
+                for x in range(0,len(p_1)):
+                    if p_2[x] == '1':
+                        n = x
+                        break
+                    elif p_1[x] == '1':
+                        n = x
+                        break
+                if n > (len(p_1)-1):
+                    ran_num = random.sample(xrange(n, len(p_1)-1), 2)
+                    r_n1, r_n2 = ran_num[0], ran_num[1]
+                    if r_n1 > r_n2:
+                        r_n1, r_n2 = r_n2, r_n1
+                    for l in range(r_n1,r_n2):
+                        p_2, p_1 = p_2[0:l] + str(p_1[l]) + p_2[l+1:], p_1[0:l] +  str(p_2[l]) + p_1[l+1:]
+                    print p_1, p_2
+                    set[i][j][n_1], set[i][j][n_2] = int(p_1,2), int(p_2,2)
     return mut_1(set)
 
 
@@ -165,7 +222,7 @@ def decode_chrom(set):
     return li_trans, li_truck, inter_trans, inter_truck,  del_trans, li_type, inter_type
 
 
-def fitness(set):
+def fitness(set,truck):
     global inv_avl
     inv_avl = inv_cal(set)
     ex_1 = [0 for x in range(0, len(set[0]))]
@@ -182,7 +239,7 @@ def fitness(set):
             con_sub = num_qw + con_sub
         ex_1[h] = ex_1[h] + con_sub
     ex_2 = [0 for x in range(0, len(set[0]))]
-    imp_q = [[[0 for x in range(0,len(set[0][0][0]))]for y in range(0,6)]for x in range(0, len(set[0]))]
+    imp_q = [[[0 for x in range(0,len(set[0][0][0][0]))]for y in range(0,6)]for x in range(0, len(set[0]))]
     exp_q = [[[0 for x in range(0,len(set[2][0][0]))]for y in range(0,6)]for x in range(0, len(set[0]))]
     for h in range(0, len(set[0])):
         for i in range(0,6):  ##Live stock Inventory
@@ -192,7 +249,7 @@ def fitness(set):
             for k in range(0,len(set[0][h][i][0])):
                 for l in range(0,len(set[0][h][i])):
                     #print k, l
-                    imp_q[h][i][l] = imp_q[h][i][l] + set[0][h][i][l][k]
+                    imp_q[h][i][k] = imp_q[h][i][k] + set[0][h][i][l][k]
         for i in range(0,6):
             for j in range(len(exp_q[h][i])):
                 if i == 0:
@@ -219,10 +276,11 @@ def fitness(set):
                 for k in range(0,len(set[2][h][i][j])):
                     for l in range(0,2):
                         dem_t = dem_t + set[2][h][i+l][j][k]
-                pen_1 = pen_1 + inv_avl[1][h][i][j] - dem_t
+                if inv_avl[1][h][i][j] > dem_t:
+                    pen_1 = pen_1 + inv_avl[1][h][i][j] - dem_t
             ex_4[h] = ex_4[h] + pen_1
     ex_5 = [0 for x in range(0, len(set[0]))]
-    imp_q = [[[0 for x in range(0,len(set[2][0][0]))]for y in range(0,6)]for x in range(0, len(set[0]))]
+    imp_q = [[[0 for x in range(0,len(set[2][0][0][0]))]for y in range(0,6)]for x in range(0, len(set[0]))]
     exp_q = [[[0 for x in range(0,len(set[4][0][0]))]for y in range(0,6)]for x in range(0, len(set[0]))]
     for h in range(0, len(set[0])):
         for i in range(0,6):  ##Live stock Inventory
@@ -232,7 +290,7 @@ def fitness(set):
             for k in range(0,len(set[2][h][i][0])):
                 for l in range(0,len(set[2][h][i])):
                     #print k, l
-                    imp_q[h][i][l] = imp_q[h][i][l] + set[2][h][i][l][k]
+                    imp_q[h][i][k] = imp_q[h][i][k] + set[2][h][i][l][k]
         for i in range(0,6):
             for j in range(len(exp_q[h][i])):
                 if i == 0:
@@ -242,14 +300,14 @@ def fitness(set):
                     if inv_avl[2][h][i][j] + imp_q[h][i][j]+inv_avl[1][h][i-1][j] < exp_q[h][i][j]:
                         ex_5[h] = ex_5[h] - inv_avl[2][h][i][j] + exp_q[h][i][j] - imp_q[h][i][j] - inv_avl[1][h][i-1][j]
     const_all = [0 for x in range(0, len(set[0]))]
-    objective = obj_func(set)
+    objective = obj_func(set,truck)
     for h in range(0, len(ex_1)):
         const_all[h] = ex_1[h] + ex_2[h] + ex_3[h] + ex_4[h] + ex_5[h] + objective[h]
     #print len(const_all)
     return const_all
 
 
-def obj_func(set):
+def obj_func(set,truck):
     inv_cost1 = [0 for x in range(0, len(set[0]))]
     for h in range(0,len(set[0])):
         cost = 0
@@ -332,8 +390,8 @@ def inv_cal(set):
     li_inv = [[[0 for y in range(pro)]for z in range(6)]for l in range(pop_size)]
     inter_inv = [[[0 for x in range(man)]for x in range(6)]for x in range(pop_size)]
     del_inv = [[[0 for x in range(exp)]for x in range(6)]for x in range(pop_size)]
-    imp_q = [[[0 for x in range(0,len(set[0][0][0]))]for y in range(0,6)]for x in range(0, len(set[0]))]
-    imp_q1 = [[[0 for x in range(0,len(set[2][0][0]))]for y in range(0,6)]for x in range(0, len(set[0]))]
+    imp_q = [[[0 for x in range(0,len(set[0][0][0][0]))]for y in range(0,6)]for x in range(0, len(set[0]))]
+    imp_q1 = [[[0 for x in range(0,len(set[2][0][0][0]))]for y in range(0,6)]for x in range(0, len(set[0]))]
     for i in range(0,  pop_size):
         for j in range(0,  6):
             for k in range(0,  pro):
@@ -349,7 +407,7 @@ def inv_cal(set):
                     used = set[2][i][j][k][l] + used
                 for u in range(0,len(set[0][i][j][0])):
                     for v in range(0,len(set[0][i][j])):
-                         imp_q[i][j][v] = imp_q[i][j][v] + set[0][i][j][v][u]
+                         imp_q[i][j][u] = imp_q[i][j][u] + set[0][i][j][v][u]
                 if imp_q[i][j][k]> used:
                     inter_inv[i][j][k] = imp_q[i][j][k] - used
             for k in range(0,  imp):
@@ -358,7 +416,7 @@ def inv_cal(set):
                     used = set[4][i][j][k][l] + used
                 for u in range(0,len(set[2][i][j][0])):
                     for v in range(0,len(set[2][i][j])):
-                        imp_q1[i][j][v] = imp_q1[i][j][v] + set[2][i][j][v][u]
+                        imp_q1[i][j][u] = imp_q1[i][j][u] + set[2][i][j][v][u]
                 if imp_q1[i][j][k]> used:
                     del_inv[i][j][k] = imp_q1[i][j][k] - used
     return li_inv, inter_inv, del_inv
@@ -419,17 +477,20 @@ def tru_dist(li_tot,inter_tot):
 
 def loc_ser(org_chrom):
     loc_res = [[]for x in range(pop_size)]
+    tru_res = [[]for x in range(pop_size)]
     #org_chrom = decode_chrom(set)
     global inv_avl
     inv_avl = inv_cal(org_chrom)
-    org_fit = fitness(org_chrom)
+    truck_loc = truck_empty(org_chrom)
+    org_fit = fitness(org_chrom,truck_loc)
     #print org_chrom[1][8][5][1]
     for j in range(len(org_chrom[0])):
         #print len(set[i])
         loc_res[j] = ind_chrom(org_chrom,j)
+        tru_res[j] = ind_truck(truck_loc,j)
         for l in range(0,gen_loc):
             upd_chrom = mut_loc(loc_res[j])
-            upd_fit = fitness(loc_res[j])
+            upd_fit = fitness(loc_res[j],tru_res[j])
             if upd_fit < org_fit:
                 org_chrom = ins_sol(org_chrom,upd_chrom,j)
     return org_chrom
@@ -485,5 +546,63 @@ def mut_loc(set):
                         else:
                             set[0][i][j][k][l] = set[0][i][j][k][l] + random.randint(int(min(set[0][i][j][k])), int(max(set[0][i][j][k])))
     return set
+def avg_fit(fit_1,fit_2,n_1,n_2):
+    fit = 0
+    for i in range(0,pop_size/2):
+        fit = fit + fit_1[n_1[1]]
+    for i in range(0,pop_size/2):
+        fit = fit + fit_2[n_2[1]]
+    return fit/pop_size
+def ind_truck(tset,val):
+    li_full_truck = [[[[0 for x in range(man)] for y in range(pro)]for z in range(6)]for l in range(pop_size)]
+    inter_full_truck = [[[[0 for x in range(exp)] for x in range(man)]for x in range(6)]for x in range(pop_size)]
+    li_inc_quant = [[[[0 for x in range(man)] for y in range(pro)]for z in range(6)]for l in range(pop_size)]
+    inter_inc_quant = [[[[0 for x in range(exp)] for x in range(man)]for x in range(6)]for x in range(pop_size)]
+    li_inc_mat = [[[[0 for x in range(man)] for y in range(pro)]for z in range(6)]for l in range(pop_size)]
+    inter_inc_mat = [[[[0 for x in range(exp)] for x in range(man)]for x in range(6)]for x in range(pop_size)]
+    for j in range(0,  6):
+        for k in range(0,  pro):
+            for l in range(0, man):
+                li_full_truck[0][j][k][l] = tset[3][val][j][k][l]
+                li_inc_quant[0][j][k][l] = tset[2][val][j][k][l]
+                li_inc_mat[0][j][k][l] = tset[2][val][j][k][l]
+        for k in range(0,  man):
+            for l in range(0,  exp):
+                inter_full_truck[0][j][k][l] = tset[6][val][j][k][l]
+                inter_inc_quant[0][j][k][l] = tset[5][val][j][k][l]
+                inter_inc_mat[0][j][k][l] = tset[4][val][j][k][l]
+    truck_dist = ind_trc_dist(tset[0],val)
+    return truck_dist, li_inc_mat, li_inc_quant, li_full_truck, inter_inc_mat, inter_inc_quant, inter_full_truck
+
+
+
+def ind_trc_dist(set,val):
+     li_trc_dist = [[[[[0 for x in range(man)] for y in range(pro)]for i in range(0,3)]for z in range(6)]for l in range(pop_size)]
+     inter_trc_dist = [[[[[0 for x in range(exp)] for x in range(man)]for i in range(0,3)]for x in range(6)]for x in range(pop_size)]
+     for i in range(0,6):
+        for k in range(0,pro):
+            for l in range(0, man):
+                li_trc_dist[0][i][0][k][l] = set[0][val][i][0][k][l]
+                li_trc_dist[0][i][1][k][l] = set[0][val][i][1][k][l]
+                li_trc_dist[0][i][2][k][l] = set[0][val][i][2][k][l]
+        for k in range(0,man):
+            for l in range(0, exp):
+                inter_trc_dist[0][i][0][k][l] = set[1][val][i][0][k][l]
+                inter_trc_dist[0][i][1][k][l] = set[1][val][i][1][k][l]
+                inter_trc_dist[0][i][2][k][l] = set[1][val][i][2][k][l]
+
+     return li_trc_dist, inter_trc_dist
+
+
+
+
+
+
+
+
+
+
+
+
 
 main()
