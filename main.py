@@ -2,13 +2,15 @@ __author__ = 'Rahul Penti'
 import random
 from operator import itemgetter, attrgetter
 import time
+#import plotdata
+
 
 
 def main():
     global pro,  man,  exp,  log,  imp,  distij,  demand,  distjk,  distli,  distlj,  distlk,  lstock,  linv_c,  binv_c,  pop_size, gen_loc, max_gen
-    max_gen = 100
-    gen_loc = 20
-    pop_size = 1000
+    max_gen = 5
+    gen_loc = 3
+    pop_size = 10
     pro, man, exp, log, imp = 5, 3, 2, 3, 2
     distij = [[42, 93, 93], [39, 57, 66], [66, 12, 39], [99, 33, 54], [45, 54, 30]]
     distjk = [[639, 740], [640, 772], [702, 825]]
@@ -26,13 +28,14 @@ def main():
 
 def genetic_algo():
     rand_pop = init_pop()
-    global children
+    global children, tot_avg
+    tot_avg = [0 for x in range(0,max_gen)]
     for i in range(0,max_gen):
         print i
         if i ==0:
-            search = offspring(rand_pop)
+            search = offspring(rand_pop, i)
         else:
-            search = offspring(children)
+            search = offspring(children, i)
         children = search
     
 
@@ -59,7 +62,7 @@ def init_pop():
     return li_trans, li_truck, inter_trans, inter_truck,  del_trans, li_type, inter_type
 
 
-def offspring(rand_pop):
+def offspring(rand_pop,val):
     start_time = time.time()
     chrom_set = make_chrom(rand_pop)
     cross_set = cross_1(chrom_set)
@@ -74,10 +77,9 @@ def offspring(rand_pop):
     n_2 = sorted(range(len(fit_2)), key=lambda i:fit_2[i])
     new_pop = make_pop(local_result, local_result1, n_1, n_2)
     truck_n = truck_empty(new_pop)
-    print fitness(new_pop,truck_n)
-    average = avg_fit(fit_1,fit_2,n_1,n_2)
+    tot_avg[val] = avg_fit(fit_1,fit_2,n_1,n_2)
     print("--- %s seconds ---" % (time.time() - start_time))
-    print average
+    print tot_avg
     return new_pop
 
 def make_pop(pop1,pop2,val1,val2):
@@ -300,6 +302,26 @@ def fitness(set,truck):
                     if inv_avl[2][h][i][j] + imp_q[h][i][j]+inv_avl[1][h][i-1][j] < exp_q[h][i][j]:
                         ex_5[h] = ex_5[h] - inv_avl[2][h][i][j] + exp_q[h][i][j] - imp_q[h][i][j] - inv_avl[1][h][i-1][j]
     const_all = [0 for x in range(0, len(set[0]))]
+    ex_6 = [0 for x in range(0, len(set[0]))]
+    for h in range(0,len(set[0])):
+        for i in range(0,6):  ##Demand CONSTRAINT
+            con_sub = 0
+            for j in range(0,len(set[4][h][i])):
+                for k in range(0,len(set[4][h][i][j])):
+                    con_sub = con_sub + set[4][h][i][j][k]
+            if j == 1 & con_sub > 124:
+                ex_6[h] = ex_6[h] + (con_sub - 124)
+            if j == 2 & con_sub > 676:
+                ex_6[h] = ex_6[h] + (con_sub - 676)
+    ex_6 = [0 for x in range(0, len(set[0]))]
+    for h in range(0,len(set[0])):
+        for i in range(0,6):  ##Demand CONSTRAINT
+            con_sub = 0
+            for j in range(0,len(inv_avl[2][h][i])):
+                if inv_avl[2][j][i][j] > 100:
+
+
+
     objective = obj_func(set,truck)
     for h in range(0, len(ex_1)):
         const_all[h] = ex_1[h] + ex_2[h] + ex_3[h] + ex_4[h] + ex_5[h] + objective[h]
@@ -540,7 +562,7 @@ def mut_loc(set):
             for k in range(0, len(set[0][i][j])):
                 for l in range(0, len(set[0][i][j][k])):
                     z, s = random.random(), random.random()
-                    if z > 0.8:
+                    if z > 0.7:
                         if s > 0.5:
                             set[0][i][j][k][l] = set[0][i][j][k][l] + random.randint(int(min(set[0][i][j][k])), int(max(set[0][i][j][k])))
                         else:
