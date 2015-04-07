@@ -1,10 +1,11 @@
 __author__ = 'Rahul Penti'
 import random
+from operator import itemgetter, attrgetter
 
 def main():
     global pro,  man,  exp,  log,  imp,  distij,  demand,  distjk,  distli,  distlj,  distlk,  lstock,  linv_c,  binv_c,  pop_size, gen_loc
-    gen_loc = 3
-    pop_size = 10
+    gen_loc = 30
+    pop_size = 100
     pro, man, exp, log, imp = 5, 3, 2, 3, 2
     distij = [[42, 93, 93], [39, 57, 66], [66, 12, 39], [99, 33, 54], [45, 54, 30]]
     distjk = [[639, 740], [640, 772], [702, 825]]
@@ -50,9 +51,10 @@ def offspring(rand_pop):
     chrom_set = make_chrom(rand_pop)
     cross_set = cross_1(chrom_set)
     deco_chrom = decode_chrom(cross_set)
+    global truck
+    truck = truck_empty(deco_chrom)
     fitn_1 = fitness(deco_chrom)
-    print fitn_1
-    #local_search = loc_ser(cross_set)
+    #local_searcph = loc_ser(cross_set)
     #decode = decode_chrom(cross_set)
     #local_search = fitness(rand_pop)
 
@@ -177,7 +179,6 @@ def fitness(set):
             for j in range(0,len(set[4][h][i])):
                 for k in range(0,len(set[4][h][i][j])):
                     con_sub = con_sub + set[4][h][i][j][k]
-            print con_sub, demand[i]
             if con_sub > demand[i]:
                 ex_3[h] = ex_3[h] + (con_sub - demand[i])
     ex_4 = [0 for x in range(0, len(set[0]))]
@@ -207,27 +208,108 @@ def fitness(set):
             for j in range(len(exp_q[h][i])):
                 if i == 0:
                     if inv_avl[2][h][i][j] + imp_q[h][i][j] < exp_q[h][i][j]:
-                        ex_5[h] = ex_5[h] + inv_avl[2][h][i][j] - exp_q[h][i][j] + imp_q[h][i][j]
+                        ex_5[h] = ex_5[h] - inv_avl[2][h][i][j] + exp_q[h][i][j] - imp_q[h][i][j]
                 else:
                     if inv_avl[2][h][i][j] + imp_q[h][i][j]+inv_avl[1][h][i-1][j] < exp_q[h][i][j]:
-                        ex_5[h] = ex_5[h] + inv_avl[2][h][i][j] - exp_q[h][i][j] + imp_q[h][i][j] + inv_avl[1][h][i-1][j]
+                        ex_5[h] = ex_5[h] - inv_avl[2][h][i][j] + exp_q[h][i][j] - imp_q[h][i][j] - inv_avl[1][h][i-1][j]
     const_all = [0 for x in range(0, len(set[0]))]
+    print 'success'
+    objective = obj_func(set)
     for h in range(0, len(ex_1)):
-        const_all[h] = ex_1[h] + ex_2[h] + ex_3[h] + ex_4[h] + ex_5[h]
-        #print ex_1[h], ex_2[h], ex_3[h], ex_4[h], ex_5[h]
+        const_all[h] = ex_1[h] + ex_2[h] + ex_3[h] + ex_4[h] + ex_5[h] + objective[h]
     #print len(const_all)
     return const_all
 
 
 
-
-
+def obj_func(set):
+    inv_cost1 = [0 for x in range(0, len(set[0]))]
+    for h in range(0,len(set[0])):
+        cost = 0
+        for i in range(0,6):
+            for j in range(0,len(inv_avl[0][h][i])):
+                cost = cost + inv_avl[0][h][i][j]*22.05
+                print cost, inv_avl[0][h][i][j]
+        inv_cost1[h] = inv_cost1[h] + cost
+    #print inv_cost1
+    for h in range(0,len(set[0])):
+        cost = 0
+        for i in range(0,6):
+            for j in range(0,len(inv_avl[1][h][i])):
+                cost = cost + inv_avl[1][h][i][j]*105
+        print cost
+        inv_cost1[h] = inv_cost1[h] + cost
+    #print inv_cost1
+    for h in range(0,len(set[0])):
+        cost = 0
+        for i in range(0,6):
+            for j in range(0,len(inv_avl[2][h][i])):
+                cost = cost + inv_avl[2][h][i][j]*105
+        print cost
+        inv_cost1[h] = inv_cost1[h] + cost
+    #print inv_cost1
+    trans_cost1 = [0 for x in range(0, len(set[0]))]
+    for h in range(0,len(set[0])):
+        cost = 0
+        for i in range(0,6):
+            for j in range(0,2):
+                for k in range(0,len(truck[0][0][h][i][j])):
+                    for l in range(0,len(truck[0][0][h][i][j][k])):
+                        cost = cost + truck[0][0][h][i][j][k][l]*(55+0.432*distij[k][l] + 0.258*distli[j][k] + 0.258*distlj[j][l])
+                        if truck[1][h][i][k][l] > 0:
+                            fill_rate = truck[2][h][i][k][l]/20
+                            fuel = 0.258+(0.432-0.258)*fill_rate
+                            cost = cost + 55*fill_rate + fuel*distij[k][l] + 0.258*distli[0][k] + 0.258*distlj[0][l]
+        trans_cost1[h] = trans_cost1[h] + cost
+    for h in range(0,len(set[0])):
+        cost = 0
+        for i in range(0,6):
+            for j in range(0,2):
+                for k in range(0,len(truck[0][1][h][i][j])):
+                    for l in range(0,len(truck[0][1][h][i][j][k])):
+                        cost = cost + truck[0][1][h][i][j][k][l]*(55+0.432*distjk[k][l] + 0.263*distlj[j][k] + 0.263*distlk[j][l])
+                        if truck[4][h][i][k][l] > 0:
+                            fill_rate = truck[5][h][i][k][l]/20
+                            fuel = 0.263+(0.432-0.263)*fill_rate
+                            cost = cost + 55*fill_rate + fuel*distjk[k][l] + 0.263*distlj[0][k] + 0.263*distlk[0][l]
+        trans_cost1[h] = trans_cost1[h] + cost
+    emmision_cost1 = [0 for x in range(0, len(set[0]))]
+    for h in range(0,len(set[0])):
+        cost = 0
+        for i in range(0,6):
+            for j in range(0,2):
+                for k in range(0,len(truck[0][0][h][i][j])):
+                    for l in range(0,len(truck[0][0][h][i][j][k])):
+                        cost = cost + truck[0][0][h][i][j][k][l]*(0.432*distij[k][l]*2.63 + 0.258*distli[j][k]*2.63 + 0.258*distlj[j][l]*2.63)
+                        if truck[1][h][i][k][l] > 0:
+                            fill_rate = truck[2][h][i][k][l]/20
+                            fuel = 0.258+(0.432-0.258)*fill_rate
+                            cost = cost  + fuel*distij[k][l]*2.63 + 0.258*distli[0][k]*2.63 + 0.258*distlj[0][l]*2.63
+    emmision_cost1[h] = emmision_cost1[h] + cost
+    for h in range(0,len(set[0])):
+        cost = 0
+        for i in range(0,6):
+            for j in range(0,2):
+                for k in range(0,len(truck[0][1][h][i][j])):
+                    for l in range(0,len(truck[0][1][h][i][j][k])):
+                        cost = cost + truck[0][1][h][i][j][k][l]*(0.432*distjk[k][l] + 0.263*distlj[j][k] + 0.263*distlk[j][l])*2.63
+                        if truck[4][h][i][k][l] > 0:
+                            fill_rate = truck[5][h][i][k][l]/20
+                            fuel = 0.263+(0.432-0.263)*fill_rate
+                            cost = cost + (fuel*distjk[k][l] + 0.263*distlj[0][k] + 0.263*distlk[0][l])*2.63
+        emmision_cost1[h] = emmision_cost1[h] + cost
+    obj_cost = [0 for x in range(0, len(set[0]))]
+    for h in range(0,len(set[0])):
+        obj_cost[h] = inv_cost1[h] + trans_cost1[h] + emmision_cost1[h]
+    return obj_cost
 
 
 def inv_cal(set):
     li_inv = [[[0 for y in range(pro)]for z in range(6)]for l in range(pop_size)]
     inter_inv = [[[0 for x in range(man)]for x in range(6)]for x in range(pop_size)]
     del_inv = [[[0 for x in range(exp)]for x in range(6)]for x in range(pop_size)]
+    imp_q = [[[0 for x in range(0,len(set[0][0][0]))]for y in range(0,6)]for x in range(0, len(set[0]))]
+    imp_q1 = [[[0 for x in range(0,len(set[2][0][0]))]for y in range(0,6)]for x in range(0, len(set[0]))]
     for i in range(0,  pop_size):
         for j in range(0,  6):
             for k in range(0,  pro):
@@ -235,18 +317,29 @@ def inv_cal(set):
                 for l in range(0, man):
                     #print type(set[0][i][j][k]), type(used)
                     used = set[0][i][j][k][l] + used
-                li_inv[i][j][k] = lstock[j][k] - used
+                if lstock[j][k]> used:
+                    li_inv[i][j][k] = lstock[j][k] - used
             for k in range(0,  man):
                 used = 0
                 for l in range(0, imp):
                     used = set[2][i][j][k][l] + used
-                inter_inv[i][j][k] = lstock[j][k]  - used
+                for u in range(0,len(set[0][i][j][0])):
+                    for v in range(0,len(set[0][i][j])):
+                         imp_q[i][j][v] = imp_q[i][j][v] + set[0][i][j][v][u]
+                if imp_q[i][j][k]> used:
+                    inter_inv[i][j][k] = imp_q[i][j][k] - used
             for k in range(0,  imp):
                 used = 0
                 for l in range(0, exp):
                     used = set[4][i][j][k][l] + used
-                del_inv[i][j][k] = lstock[j][k]  - used
+                for u in range(0,len(set[2][i][j][0])):
+                    for v in range(0,len(set[2][i][j])):
+                        imp_q1[i][j][v] = imp_q1[i][j][v] + set[2][i][j][v][u]
+                if imp_q1[i][j][k]> used:
+                    del_inv[i][j][k] = imp_q1[i][j][k] - used
     return li_inv, inter_inv, del_inv
+
+
 
 def truck_empty(set):
     li_full_truck   = [[[[0 for x in range(man)] for y in range(pro)]for z in range(6)]for l in range(pop_size)]
@@ -269,10 +362,35 @@ def truck_empty(set):
                     inter_inc_quant[i][j][k][l] = set[2][i][j][k][l] - 20*inter_full_truck[i][j][k][l]
                     if inter_inc_quant > 0:
                         inter_inc_mat[i][j][k][l] = 1
-    return li_inc_mat, li_inc_quant, li_full_truck, inter_inc_mat, inter_inc_quant, inter_full_truck
+    truck_dist = tru_dist(li_full_truck,inter_full_truck)
+    return truck_dist, li_inc_mat, li_inc_quant, li_full_truck, inter_inc_mat, inter_inc_quant, inter_full_truck
 
-
-
+def tru_dist(li_tot,inter_tot):
+    li_trc_dist = [[[[[0 for x in range(man)] for y in range(pro)]for i in range(0,3)]for z in range(6)]for l in range(pop_size)]
+    inter_trc_dist = [[[[[0 for x in range(exp)] for x in range(man)]for i in range(0,3)]for x in range(6)]for x in range(pop_size)]
+    for h in range(0, pop_size):
+        for i in range(0,6):
+                for k in range(0,pro):
+                    for l in range(0, man):
+                        if li_tot[h][i][k][l] > 5:
+                            li_trc_dist[h][i][0][k][l] = (li_tot[h][i][k][l] + 1) - random.randint(3,li_tot[h][i][k][l]-3)
+                            li_trc_dist[h][i][1][k][l] = (li_tot[h][i][k][l] + 1 - li_trc_dist[h][i][0][k][l]) - random.randint(0,(li_tot[h][i][k][l]-li_trc_dist[h][i][0][k][l]))
+                            if li_tot[h][i][k][l] + 1 > li_trc_dist[h][i][0][k][l] + li_trc_dist[h][i][1][k][l]:
+                                li_trc_dist[h][i][2][k][l] = li_tot[h][i][k][l] + 1 - li_trc_dist[h][i][0][k][l] - li_trc_dist[h][i][1][k][l]
+                        else:
+                            s = random.randint(0,2)
+                            li_trc_dist[h][i][s][k][l] = (li_tot[h][i][k][l] + 1)
+                for k in range(0,man):
+                    for l in range(0, exp):
+                        if li_tot[h][i][k][l] > 5:
+                            inter_trc_dist[h][i][0][k][l] = (inter_tot[h][i][k][l] + 1) - random.randint(3,li_tot[h][i][k][l]-3)
+                            inter_trc_dist[h][i][1][k][l] = (inter_tot[h][i][k][l] + 1 - inter_trc_dist[h][i][0][k][l]) - random.randint(0,(li_tot[h][i][k][l]-li_trc_dist[h][i][0][k][l]))
+                            if inter_tot[h][i][k][l] + 1 > inter_trc_dist[h][i][0][k][l] + inter_trc_dist[h][i][1][k][l]:
+                                inter_trc_dist[h][i][2][k][l] = inter_tot[h][i][k][l] + 1 - inter_trc_dist[h][i][0][k][l] - inter_trc_dist[h][i][1][k][l]
+                        else:
+                            s = random.randint(0,2)
+                            li_trc_dist[h][i][s][k][l] = (inter_tot[h][i][k][l] + 1)
+    return li_trc_dist, inter_trc_dist
 
 
 
@@ -336,5 +454,3 @@ def mut_loc(set):
     return set
 
 main()
-
-
